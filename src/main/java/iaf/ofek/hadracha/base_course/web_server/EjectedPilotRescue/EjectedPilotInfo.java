@@ -30,6 +30,14 @@ public class EjectedPilotInfo implements Entity<EjectedPilotInfo> {
         this.id = id;
     }
 
+    public String getRescuedBy() {
+        return rescuedBy;
+    }
+
+    public void setRescuedBy(String rescuedBy) {
+        this.rescuedBy = rescuedBy;
+    }
+
     @Override
     public EjectedPilotInfo clone() {
         try {
