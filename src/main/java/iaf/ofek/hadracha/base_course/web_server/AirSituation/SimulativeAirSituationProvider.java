@@ -20,13 +20,15 @@ public class SimulativeAirSituationProvider implements AirSituationProvider {
 
     private static final double CHANCE_FOR_NUMBER_CHANGE = 0.005;
     private static final double CHANCE_FOR_AZIMUTH_CHANGE = 0.05;
-    private static int STEP_SIZE = 15;
-    private static int SIMULATION_INTERVAL_MILLIS = 100;
-    private double LAT_MIN = 29.000;
-    private double LAT_MAX = 36.000;
-    private double LON_MIN = 32.000;
-    private double LON_MAX = 46.500;
+    private static final int STEP_SIZE = 15;
+    private static final int SIMULATION_INTERVAL_MILLIS = 100;
+    private static final double LAT_MIN = 29.000;
+    private static final double LAT_MAX = 36.000;
+    private static final double LON_MIN = 32.000;
+    private static final double LON_MAX = 46.500;
     private static final double AZIMUTH_STEP = STEP_SIZE / (2000.0 / SIMULATION_INTERVAL_MILLIS);
+    private static final int MIN_DISTANCE = 500;
+    private static final int INITIAL_NUM_OF_AIRPLANES = 80;
 
 
     // Scheduler to run advancement task repeatedly
@@ -46,8 +48,8 @@ public class SimulativeAirSituationProvider implements AirSituationProvider {
         this.randomGenerators = randomGenerators;
         this.geographicCalculations = geographicCalculations;
 
-        for (int i = 0; i < 80; i++) {
-            foo();
+        for (int i = 0; i < INITIAL_NUM_OF_AIRPLANES; i++) {
+            addRandomAirplane();
         }
 
         executor.scheduleAtFixedRate(this::UpdateSituation, 0, SIMULATION_INTERVAL_MILLIS, TimeUnit.MILLISECONDS);
@@ -56,7 +58,7 @@ public class SimulativeAirSituationProvider implements AirSituationProvider {
     // all airplane kinds that can be used
     private List<AirplaneKind> airplaneKinds = AirplaneKind.LeafKinds();
 
-    private void foo() {
+    private void addRandomAirplane() {
         AirplaneKind kind = airplaneKinds.get(random.nextInt(airplaneKinds.size()));
         Airplane airplane = new Airplane(kind, lastId++);
         airplane.coordinates=new Coordinates(randomGenerators.generateRandomDoubleInRange(LAT_MIN, LAT_MAX),
@@ -90,7 +92,7 @@ public class SimulativeAirSituationProvider implements AirSituationProvider {
                 });
 
                 if (random.nextDouble() < CHANCE_FOR_NUMBER_CHANGE) { // chance to add an airplane
-                    foo();
+                    addRandomAirplane();
                 }
             }
         }
@@ -126,7 +128,7 @@ public class SimulativeAirSituationProvider implements AirSituationProvider {
     }
 
     private boolean arrivedToDestination(Coordinates currLocation, Coordinates headingTo) {
-        return geographicCalculations.distanceBetween(currLocation, headingTo) < 500;
+        return geographicCalculations.distanceBetween(currLocation, headingTo) < MIN_DISTANCE;
     }
 
     /**

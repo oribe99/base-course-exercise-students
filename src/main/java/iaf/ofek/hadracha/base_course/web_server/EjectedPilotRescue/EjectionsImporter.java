@@ -32,7 +32,6 @@ public class EjectionsImporter {
     public String NAMESPACE;
 
 
-
     private ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private final RestTemplate restTemplate;
     private final CrudDataBase dataBase;
@@ -49,36 +48,43 @@ public class EjectionsImporter {
 
     private void updateEjections() {
         try {
-            List<EjectedPilotInfo> ejectionsFromServer;
-            ResponseEntity<List<EjectedPilotInfo>> responseEntity = restTemplate.exchange(
-                    EJECTION_SERVER_URL + "/ejections?name=" + NAMESPACE, HttpMethod.GET,
-                    null, new ParameterizedTypeReference<List<EjectedPilotInfo>>() {
-                    });
-            ejectionsFromServer = responseEntity.getBody();
+            List<EjectedPilotInfo> ejectionsFromServer = getEjectionsFromServer();
             if (ejectionsFromServer != null) {
-                for(EjectedPilotInfo ejectedPilotInfo: ejectionsFromServer) {
-                    ejectedPilotInfo.coordinates.lat += SHIFT_NORTH;
+                for (EjectedPilotInfo ejectedPilotInfo : ejectionsFromServer) {
+                    ejectedPilotInfo.getCoordinates().lat += SHIFT_NORTH;
                 }
             }
             List<EjectedPilotInfo> updatedEjections = ejectionsFromServer;
             List<EjectedPilotInfo> previousEjections = dataBase.getAllOfType(EjectedPilotInfo.class);
 
-            List<EjectedPilotInfo> addedEjections = ejectionsToAdd(updatedEjections, previousEjections);
-            List<EjectedPilotInfo> removedEjections = ejectionsToRemove(updatedEjections, previousEjections);
+            addEjectionsToDB(updatedEjections, previousEjections);
+            removeEjectionsFromDB(updatedEjections, previousEjections);
 
-            addedEjections.forEach(dataBase::create);
-            removedEjections.stream().map(EjectedPilotInfo::getId).forEach(id -> dataBase.delete(id, EjectedPilotInfo.class));
         } catch (RestClientException e) {
             System.err.println("Could not get ejections: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    private List<EjectedPilotInfo> ejectionsToRemove(List<EjectedPilotInfo> updatedEjections, List<EjectedPilotInfo> previousEjections) {
-        return listOperations.subtract(previousEjections, updatedEjections, new Entity.ByIdEqualizer<>());
+    private List<EjectedPilotInfo> getEjectionsFromServer() {
+        ResponseEntity<List<EjectedPilotInfo>> responseEntity = restTemplate.exchange(
+                EJECTION_SERVER_URL + "/ejections?name=" + NAMESPACE, HttpMethod.GET,
+                null, new ParameterizedTypeReference<List<EjectedPilotInfo>>() {
+                });
+        return responseEntity.getBody();
     }
 
-    private List<EjectedPilotInfo> ejectionsToAdd(List<EjectedPilotInfo> updatedEjections, List<EjectedPilotInfo> previousEjections) {
-        return listOperations.subtract(updatedEjections, previousEjections, new Entity.ByIdEqualizer<>());
+    private void addEjectionsToDB(List<EjectedPilotInfo> updatedEjections, List<EjectedPilotInfo> previousEjections) {
+        List<EjectedPilotInfo> addedEjections = ejectionsSubtract(updatedEjections, previousEjections);
+        addedEjections.forEach(dataBase::create);
+    }
+
+    private void removeEjectionsFromDB(List<EjectedPilotInfo> updatedEjections, List<EjectedPilotInfo> previousEjections) {
+        List<EjectedPilotInfo> removedEjections = ejectionsSubtract(previousEjections, updatedEjections);
+        removedEjections.stream().map(EjectedPilotInfo::getId).forEach(id -> dataBase.delete(id, EjectedPilotInfo.class));
+    }
+
+    private List<EjectedPilotInfo> ejectionsSubtract(List<EjectedPilotInfo> firstEjectionsList, List<EjectedPilotInfo> secondEjectionsList) {
+        return listOperations.subtract(firstEjectionsList, secondEjectionsList, new Entity.ByIdEqualizer<>());
     }
 }
